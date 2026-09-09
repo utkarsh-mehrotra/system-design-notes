@@ -1,0 +1,13 @@
+{
+  "name": "system-design-notes",
+  "private": true,
+  "version": "1.0.0",
+  "description": "System design interview notes: scaling fundamentals plus 25 end-to-end case studies.",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-page.mjs"
+  },
+  "dependencies": {
+    "marked": "^18.0.11"
+  }
+}

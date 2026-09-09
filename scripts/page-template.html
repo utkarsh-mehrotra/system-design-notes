@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>System Design Notes</title>
+<meta name="description" content="28 end-to-end system design case studies plus scaling and estimation fundamentals, written up for interview preparation.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EDF0F3; --paper2:#FAFBFC; --sunk:#E2E7EC;
+  --ink:#141B2D; --ink2:#4A5568; --ink3:#7A8698;
+  --rule:#CBD4DD; --rule2:#DDE3E9;
+  --red:#B3382C; --redbg:#F7E7E4;
+  --green:#186B54; --greenbg:#E2EFEA;
+  --blue:#25508C; --bluebg:#E4EAF4;
+  --purple:#6B3FA0; --purplebg:#EDE4F5;
+  --mark:#FFE27A;
+  --rail:280px; --topH:53px;
+}
+html[data-night="1"]{
+  --paper:#131A24; --paper2:#1A222E; --sunk:#0E141C;
+  --ink:#E7EDF4; --ink2:#A9B6C6; --ink3:#7C8B9E;
+  --rule:#2B3746; --rule2:#222C39;
+  --red:#EA8478; --redbg:#2C1F20;
+  --green:#5CC9A5; --greenbg:#152A26;
+  --blue:#89AEE8; --bluebg:#18222F;
+  --purple:#B592DD; --purplebg:#241B30;
+  --mark:#B99219;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--paper); color:var(--ink);
+  font-family:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased;
+}
+code,kbd,pre,.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+a{color:var(--blue)}
+button{font-family:inherit;font-size:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--blue); outline-offset:2px; border-radius:2px}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+html{scroll-behavior:smooth}
+
+/* ---------- chrome ---------- */
+.top{
+  position:sticky; top:0; z-index:40; background:var(--paper);
+  border-bottom:1px solid var(--rule); display:flex; align-items:center;
+  gap:18px; padding:10px 20px; flex-wrap:wrap;
+}
+.brand{display:flex;align-items:baseline;gap:9px;margin-right:auto;text-decoration:none;color:var(--ink)}
+.brand b{font-weight:700;letter-spacing:-.02em;font-size:17px}
+.brand span{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink3)}
+.search{position:relative}
+.search input{
+  font:inherit;font-size:13.5px;padding:6px 10px 6px 28px;width:210px;
+  background:var(--paper2); color:var(--ink);
+  border:1px solid var(--rule); border-radius:3px;
+}
+.search svg{position:absolute;left:8px;top:8px;opacity:.5;pointer-events:none}
+.icnbtn,.linkbtn{background:transparent;border:1px solid var(--rule);border-radius:3px;cursor:pointer;padding:5px 9px;font-size:13px;color:var(--ink);text-decoration:none}
+.icnbtn:hover,.linkbtn:hover{border-color:var(--ink)}
+.menu-btn{display:none}
+
+/* ---------- shell ---------- */
+.shell{display:grid;grid-template-columns:var(--rail) minmax(0,1fr);align-items:start}
+.rail{
+  position:sticky; top:var(--topH); height:calc(100vh - var(--topH)); overflow-y:auto;
+  border-right:1px solid var(--rule); padding:20px 14px 60px;
+  scrollbar-width:thin;
+}
+.rail h4{
+  font-size:11px;font-family:"IBM Plex Mono",monospace;color:var(--ink3);
+  margin:18px 0 4px;font-weight:500;letter-spacing:.03em;
+}
+.rail h4:first-child{margin-top:0}
+.rail-group{display:flex;flex-direction:column}
+.rail a{
+  display:block;text-decoration:none;color:var(--ink2);
+  font-size:13.5px;padding:3px 7px;border-radius:3px;line-height:1.35;
+}
+.rail a.sub{color:var(--ink3);font-size:12.5px;padding-left:15px}
+.rail a:hover{background:var(--sunk);color:var(--ink)}
+.rail a.on{background:var(--ink);color:var(--paper)}
+
+.page{padding:0 48px 120px;max-width:1000px;margin:0}
+.content{max-width:74ch}
+@media(max-width:900px){
+  .shell{grid-template-columns:1fr}
+  .rail{position:fixed;left:0;top:var(--topH);width:280px;background:var(--paper);z-index:35;transform:translateX(-102%);transition:transform .18s;box-shadow:2px 0 14px rgba(0,0,0,.13)}
+  .rail.open{transform:none}
+  .menu-btn{display:block}
+  .page{padding:0 18px 100px}
+  .search input{width:130px}
+}
+
+/* ---------- hero ---------- */
+.hero{border-bottom:1px solid var(--rule);padding:36px 0 26px;margin-bottom:30px}
+.hero h1{font-size:33px;margin:0 0 8px}
+.hero p.lede{font-size:17px;color:var(--ink2);line-height:1.55;max-width:70ch;margin:0 0 18px}
+.stats{display:flex;gap:22px;flex-wrap:wrap;margin-bottom:18px}
+.stat b{display:block;font-size:22px;font-weight:700}
+.stat span{font-size:12px;color:var(--ink3);font-family:"IBM Plex Mono",monospace}
+.hero-links{display:flex;gap:9px;flex-wrap:wrap}
+.hero-links a{background:var(--ink);color:var(--paper);border:1px solid var(--ink);border-radius:3px;padding:7px 15px;font-size:13.5px;text-decoration:none}
+.hero-links a.ghost{background:transparent;color:var(--ink)}
+
+/* ---------- typography ---------- */
+.content h1{font-size:27px;line-height:1.2;letter-spacing:-.02em;margin:52px 0 14px;font-weight:700;padding-top:8px;border-top:1px solid var(--rule)}
+.content h1:first-child{border-top:0;margin-top:0}
+.content h2{font-size:19px;letter-spacing:-.01em;margin:34px 0 10px;font-weight:600;padding-bottom:5px;border-bottom:1px solid var(--rule)}
+.content h3{font-size:15px;margin:22px 0 6px;font-weight:600}
+.content p{margin:0 0 13px}
+.content ul,.content ol{margin:0 0 14px;padding-left:22px}
+.content li{margin-bottom:5px}
+.content strong{color:var(--ink)}
+.content img{max-width:100%;border:1px solid var(--rule);border-radius:3px;background:var(--paper2)}
+.kicker{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--ink3);margin:0 0 4px}
+.part-kicker{margin-top:52px}
+.content h1:first-child + .part-kicker,
+.content > .part-kicker:first-child{margin-top:0}
+
+.content pre{background:var(--paper2);border:1px solid var(--rule);border-radius:3px;padding:12px 14px;overflow-x:auto;font-size:13px;line-height:1.5;margin:0 0 18px}
+.content code{font-size:.92em;background:var(--sunk);padding:1px 4px;border-radius:2px}
+.content pre code{background:none;padding:0}
+
+.content table{width:100%;border-collapse:collapse;margin:10px 0 22px;font-size:14px}
+.content th{text-align:left;padding:7px 9px;border-bottom:2px solid var(--ink);font-size:13px;vertical-align:bottom}
+.content td{padding:7px 9px;border-bottom:1px solid var(--rule2);vertical-align:top}
+.scroller{overflow-x:auto}
+
+hr.soft{border:0;border-top:1px solid var(--rule);margin:30px 0}
+
+@media print{
+  .top,.rail,.menu-btn,.hero-links{display:none!important}
+  .shell{display:block}
+  body{background:#fff;font-size:11pt}
+  .content h1{break-after:avoid}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <button class="icnbtn menu-btn" id="menuBtn" aria-label="Open contents">&#9776;</button>
+  <a class="brand" href="#top">
+    <b>System Design Notes</b><span>28 case studies, one topic at a time</span>
+  </a>
+  <div class="search">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+    <input id="q" type="search" placeholder="Filter topics" autocomplete="off">
+  </div>
+  <a class="linkbtn" href="https://github.com/liquidslr/system-design-notes">Upstream</a>
+  <a class="linkbtn" href="https://github.com/utkarsh-mehrotra/system-design-notes">GitHub</a>
+  <button class="icnbtn" id="night" aria-label="Toggle night reading">&#9680;</button>
+</header>
+<div class="shell">
+  <nav class="rail" id="rail">
+/*__RAIL__*/
+  </nav>
+  <main class="page" id="top">
+    <div class="hero">
+      <p class="kicker">Forked from liquidslr/system-design-notes</p>
+      <h1>System Design Notes</h1>
+      <p class="lede">A single-page reference for system design interview prep &mdash; scaling and estimation fundamentals, a structured interview framework, and __CASE_COUNT__ end-to-end case studies covering the most commonly asked designs, from a rate limiter to a stock exchange.</p>
+      <div class="stats">
+        <div class="stat"><b>__CASE_COUNT__</b><span>case studies</span></div>
+        <div class="stat"><b>__PRIMER_COUNT__</b><span>fundamentals</span></div>
+        <div class="stat"><b>__IMAGE_COUNT__</b><span>diagrams</span></div>
+      </div>
+      <div class="hero-links">
+        <a href="https://github.com/utkarsh-mehrotra/system-design-notes">View source</a>
+        <a class="ghost" href="https://github.com/liquidslr/system-design-notes">Original repo</a>
+      </div>
+    </div>
+    <div class="content">
+/*__BODY__*/
+    </div>
+  </main>
+</div>
+<script>
+(function(){
+  var root = document.documentElement;
+  function safe(fn){ try{ return fn(); }catch(e){ return undefined; } }
+
+  // night mode
+  var stored = safe(function(){ return localStorage.getItem("sdn-night"); });
+  if(stored === "1") root.setAttribute("data-night","1");
+  document.getElementById("night").addEventListener("click", function(){
+    var on = root.getAttribute("data-night") === "1";
+    root.setAttribute("data-night", on ? "0" : "1");
+    safe(function(){ localStorage.setItem("sdn-night", on ? "0" : "1"); });
+  });
+
+  // mobile rail
+  var rail = document.getElementById("rail");
+  document.getElementById("menuBtn").addEventListener("click", function(){
+    rail.classList.toggle("open");
+  });
+  rail.addEventListener("click", function(e){
+    if(e.target.tagName === "A") rail.classList.remove("open");
+  });
+
+  // header height var (for sticky offsets)
+  function sizeHeader(){
+    var t = document.querySelector(".top");
+    if(t) root.style.setProperty("--topH", t.offsetHeight + "px");
+  }
+  window.addEventListener("resize", sizeHeader);
+  sizeHeader();
+
+  // filter rail by topic/section title
+  var q = document.getElementById("q");
+  q.addEventListener("input", function(){
+    var term = q.value.trim().toLowerCase();
+    var groups = rail.querySelectorAll(".rail-group");
+    groups.forEach(function(g){
+      var links = g.querySelectorAll("a");
+      var groupMatch = false;
+      links.forEach(function(a){
+        var hit = !term || (a.dataset.title || "").toLowerCase().includes(term);
+        a.style.display = hit ? "" : "none";
+        if(hit) groupMatch = true;
+      });
+      g.style.display = groupMatch ? "" : "none";
+      var h = g.previousElementSibling;
+      if(h && h.tagName === "H4") h.style.display = groupMatch ? "" : "none";
+    });
+  });
+
+  // scrollspy
+  var links = Array.prototype.slice.call(rail.querySelectorAll("a"));
+  var targets = links.map(function(a){ return document.getElementById(a.getAttribute("href").slice(1)); }).filter(Boolean);
+  if("IntersectionObserver" in window && targets.length){
+    var byId = {};
+    links.forEach(function(a){ byId[a.getAttribute("href").slice(1)] = a; });
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(entry){
+        var link = byId[entry.target.id];
+        if(!link) return;
+        if(entry.isIntersecting) links.forEach(function(a){ a.classList.remove("on"); }), link.classList.add("on");
+      });
+    }, { rootMargin: "0px 0px -75% 0px" });
+    targets.forEach(function(t){ io.observe(t); });
+  }
+})();
+</script>
+</body>
+</html>

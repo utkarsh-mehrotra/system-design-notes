@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>System Design Notes</title>
+<meta name="description" content="A browsable collection of system design interview notes: scaling fundamentals and 28 real-world system design case studies." />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧭</text></svg>" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme: dark)" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.5/purify.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg-sidebar: #f7f7f8;
+    --bg-hover: #ececee;
+    --bg-active: #eef0ff;
+    --border: #e3e3e6;
+    --text: #1c1c1f;
+    --text-dim: #6b6b74;
+    --accent: #4f46e5;
+    --accent-text: #4338ca;
+    --code-bg: #f3f3f5;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #16161a;
+      --bg-sidebar: #1c1c21;
+      --bg-hover: #26262c;
+      --bg-active: #262a45;
+      --border: #2c2c33;
+      --text: #ececee;
+      --text-dim: #97979f;
+      --accent: #8180f5;
+      --accent-text: #a5a4ff;
+      --code-bg: #1f1f25;
+      --shadow: 0 1px 3px rgba(0,0,0,0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #16161a;
+    --bg-sidebar: #1c1c21;
+    --bg-hover: #26262c;
+    --bg-active: #262a45;
+    --border: #2c2c33;
+    --text: #ececee;
+    --text-dim: #97979f;
+    --accent: #8180f5;
+    --accent-text: #a5a4ff;
+    --code-bg: #1f1f25;
+    --shadow: 0 1px 3px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    display: flex;
+    min-height: 100vh;
+  }
+
+  /* Sidebar */
+  #sidebar {
+    width: 300px;
+    flex-shrink: 0;
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    position: sticky;
+    top: 0;
+  }
+  #sidebar-header {
+    padding: 20px 18px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  #sidebar-header h1 {
+    font-size: 16px;
+    margin: 0 0 2px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  #sidebar-header p {
+    margin: 0;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  #search {
+    margin: 12px 14px 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    outline: none;
+  }
+  #search:focus { border-color: var(--accent); }
+  #nav-list {
+    overflow-y: auto;
+    flex: 1;
+    padding: 4px 8px 16px;
+  }
+  #nav-list a {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    padding: 8px 10px;
+    border-radius: 8px;
+    color: var(--text);
+    text-decoration: none;
+    font-size: 13.5px;
+    line-height: 1.35;
+  }
+  #nav-list a .num {
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    flex-shrink: 0;
+    width: 20px;
+  }
+  #nav-list a:hover { background: var(--bg-hover); }
+  #nav-list a.active {
+    background: var(--bg-active);
+    color: var(--accent-text);
+    font-weight: 600;
+  }
+  #nav-list a.active .num { color: var(--accent-text); }
+  #nav-list .group-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+    padding: 14px 10px 6px;
+  }
+
+  #sidebar-footer {
+    padding: 10px 14px;
+    border-top: 1px solid var(--border);
+    font-size: 11.5px;
+    color: var(--text-dim);
+  }
+  #sidebar-footer a { color: var(--text-dim); }
+
+  /* Mobile toggle */
+  #menu-toggle {
+    display: none;
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 20;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    width: 38px;
+    height: 38px;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    color: var(--text);
+  }
+
+  /* Main content */
+  #main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    justify-content: center;
+  }
+  #content {
+    width: 100%;
+    max-width: 820px;
+    padding: 48px 32px 96px;
+  }
+  #content img { max-width: 100%; border-radius: 8px; border: 1px solid var(--border); }
+  #content h1, #content h2, #content h3 { line-height: 1.25; scroll-margin-top: 20px; }
+  #content h1 { font-size: 30px; margin-top: 0; }
+  #content h2 { font-size: 22px; margin-top: 2.2em; padding-top: 0.4em; border-top: 1px solid var(--border); }
+  #content h3 { font-size: 17px; margin-top: 1.8em; }
+  #content p, #content li { font-size: 15.5px; line-height: 1.7; color: var(--text); }
+  #content a { color: var(--accent-text); }
+  #content code {
+    background: var(--code-bg);
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-size: 0.88em;
+  }
+  #content pre {
+    background: var(--code-bg);
+    padding: 14px 16px;
+    border-radius: 10px;
+    overflow-x: auto;
+    border: 1px solid var(--border);
+  }
+  #content pre code { background: none; padding: 0; }
+  #content table {
+    border-collapse: collapse;
+    width: 100%;
+    display: block;
+    overflow-x: auto;
+    font-size: 14px;
+  }
+  #content th, #content td {
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    text-align: left;
+  }
+  #content th { background: var(--code-bg); }
+  #content blockquote {
+    margin: 1em 0;
+    padding: 0.2em 1em;
+    border-left: 3px solid var(--accent);
+    background: var(--code-bg);
+    color: var(--text-dim);
+    border-radius: 0 6px 6px 0;
+  }
+  #content hr { border: none; border-top: 1px solid var(--border); margin: 2.4em 0; }
+
+  #pager {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 56px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+  #pager a {
+    flex: 1;
+    text-decoration: none;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 13px;
+  }
+  #pager a .dir { color: var(--text-dim); font-size: 11px; display: block; margin-bottom: 2px; }
+  #pager a:hover { background: var(--bg-hover); }
+  #pager a.next { text-align: right; }
+
+  #skeleton { color: var(--text-dim); font-size: 14px; padding-top: 8px; }
+
+  .home-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 12px;
+    margin-top: 28px;
+  }
+  .home-card {
+    display: block;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    text-decoration: none;
+    color: var(--text);
+  }
+  .home-card:hover { background: var(--bg-hover); border-color: var(--accent); }
+  .home-card .num { color: var(--accent-text); font-size: 12px; font-weight: 700; }
+  .home-card .title { font-size: 14px; margin-top: 4px; font-weight: 600; }
+
+  @media (max-width: 860px) {
+    #sidebar {
+      position: fixed;
+      z-index: 15;
+      left: 0; top: 0;
+      transform: translateX(-100%);
+      transition: transform 0.2s ease;
+      width: 280px;
+    }
+    #sidebar.open { transform: translateX(0); box-shadow: 0 0 0 2000px rgba(0,0,0,0.35); }
+    #menu-toggle { display: flex; }
+    #content { padding: 72px 20px 80px; }
+  }
+</style>
+</head>
+<body>
+
+<button id="menu-toggle" aria-label="Toggle navigation">☰</button>
+
+<nav id="sidebar">
+  <div id="sidebar-header">
+    <h1>System Design Notes</h1>
+    <p>Interview-ready notes, browsable</p>
+  </div>
+  <input id="search" type="search" placeholder="Filter topics…" autocomplete="off" />
+  <div id="nav-list"></div>
+  <div id="sidebar-footer">
+    Forked from <a href="https://github.com/liquidslr/system-design-notes" target="_blank" rel="noopener">liquidslr/system-design-notes</a>
+  </div>
+</nav>
+
+<div id="main">
+  <div id="content">
+    <div id="skeleton">Loading…</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Ordered list of topics: [id, display title, folder, filename]
+  var TOPICS = [
+    ["scaling", "Scaling", "01. Scaling", "Readme.md"],
+    ["estimation", "Back of the Envelope Estimation", "02. Back Of the Envelope Estimation", "Readme.md"],
+    ["framework", "System Design Framework", "03. System Design Framework", "Readme.md"],
+    ["rate-limiter", "Rate Limiter", "04. Rate Limiter", "Readme.md"],
+    ["consistent-hashing", "Consistent Hashing", "05. Consistent Hashing", "Readme.md"],
+    ["kv-store", "Key-Value Store", "06. Key-Value Store", "Readme.md"],
+    ["unique-id", "Unique-Id Generator", "07. Unique-Id Generator", "Readme.md"],
+    ["url-shortener", "URL Shortener", "08. URL Shortener", "Readme.md"],
+    ["web-crawler", "Web Crawler", "09. Web Crawler", "Readme.md"],
+    ["notification", "Notification System", "10. Notification System", "Readme.md"],
+    ["news-feed", "News Feed System", "11. News Feed System", "Readme.md"],
+    ["chat", "Chat System", "12. Chat System", "Readme.md"],
+    ["autocomplete", "Search Autocomplete", "13. Search Autocomplete", "Readme.md"],
+    ["youtube", "Youtube", "14. Youtube", "Readme.md"],
+    ["google-drive", "Google Drive", "15. Google Drive", "Readme.md"],
+    ["proximity", "Proximity Service", "16. Proximity Service", "Readme.md"],
+    ["nearby-friends", "Nearby Friends", "17. Nearby Friends", "README.md"],
+    ["google-maps", "Google Maps", "18. Google Maps", "README.md"],
+    ["message-queue", "Distributed Message Queue", "19. Distributed Message Queue", "README.md"],
+    ["metrics", "Metrics Monitoring and Alerting System", "20. Metrics Monitoring and Alerting System", "README.md"],
+    ["ad-click", "Ad Click Event Aggregation", "21. Ad Click Event Aggregation", "README.md"],
+    ["hotel", "Hotel Reservation System", "22. Hotel Reservation System", "README.md"],
+    ["email", "Distributed Email Service", "23. Distributed Email Service", "README.md"],
+    ["object-storage", "S3-like Object Storage", "24. S3-like Object Storage", "README.md"],
+    ["leaderboard", "Real-time Gaming Leaderboard", "25. Real-time Gaming Leaderboard", "README.md"],
+    ["payment", "Payment System", "26. Payment System", "README.md"],
+    ["wallet", "Digital Wallet", "27.  Digital Wallet", "README.md"],
+    ["stock-exchange", "Stock Exchange", "28. Stock Exchange", "README.md"]
+  ];
+
+  var navList = document.getElementById("nav-list");
+  var content = document.getElementById("content");
+  var searchBox = document.getElementById("search");
+  var sidebar = document.getElementById("sidebar");
+  var cache = {};
+
+  function buildNav(filter) {
+    navList.innerHTML = "";
+    var homeLink = document.createElement("a");
+    homeLink.href = "#/";
+    homeLink.textContent = "Overview";
+    homeLink.dataset.id = "";
+    navList.appendChild(homeLink);
+
+    var label = document.createElement("div");
+    label.className = "group-label";
+    label.textContent = "Case Studies";
+    navList.appendChild(label);
+
+    TOPICS.forEach(function (t, i) {
+      var id = t[0], title = t[1];
+      if (filter && title.toLowerCase().indexOf(filter) === -1) return;
+      var a = document.createElement("a");
+      a.href = "#/" + id;
+      a.dataset.id = id;
+      var num = document.createElement("span");
+      num.className = "num";
+      num.textContent = String(i + 1).padStart(2, "0");
+      var span = document.createElement("span");
+      span.textContent = title;
+      a.appendChild(num);
+      a.appendChild(span);
+      navList.appendChild(a);
+    });
+  }
+
+  function markActive(id) {
+    var links = navList.querySelectorAll("a");
+    links.forEach(function (a) {
+      a.classList.toggle("active", a.dataset.id === id);
+    });
+  }
+
+  function renderHome() {
+    document.title = "System Design Notes";
+    var html = "<h1>System Design Notes</h1>" +
+      "<p>A browsable collection of system design interview notes &mdash; scaling fundamentals plus " +
+      TOPICS.length + " end-to-end case studies. Pick a topic from the sidebar, or a card below.</p>" +
+      '<div class="home-grid">';
+    TOPICS.forEach(function (t, i) {
+      html += '<a class="home-card" href="#/' + t[0] + '"><div class="num">' +
+        String(i + 1).padStart(2, "0") + '</div><div class="title">' + t[1] + '</div></a>';
+    });
+    html += "</div>";
+    content.innerHTML = html;
+    markActive("");
+    window.scrollTo(0, 0);
+  }
+
+  function resolveImagePaths(container, folder) {
+    var imgs = container.querySelectorAll("img");
+    imgs.forEach(function (img) {
+      var src = img.getAttribute("src");
+      if (!src) return;
+      if (/^(https?:)?\/\//.test(src) || src.indexOf("data:") === 0) return;
+      src = src.replace(/^\.\//, "");
+      img.setAttribute("src", folder + "/" + src);
+    });
+  }
+
+  function renderPager(index) {
+    var prev = TOPICS[index - 1];
+    var next = TOPICS[index + 1];
+    var html = '<div id="pager">';
+    html += prev
+      ? '<a class="prev" href="#/' + prev[0] + '"><span class="dir">&larr; Previous</span>' + prev[1] + "</a>"
+      : "<div></div>";
+    html += next
+      ? '<a class="next" href="#/' + next[0] + '"><span class="dir">Next &rarr;</span>' + next[1] + "</a>"
+      : "<div></div>";
+    html += "</div>";
+    return html;
+  }
+
+  function renderTopic(id) {
+    var index = TOPICS.findIndex(function (t) { return t[0] === id; });
+    if (index === -1) { renderHome(); return; }
+    var t = TOPICS[index];
+    var title = t[1], folder = t[2], file = t[3];
+    document.title = title + " · System Design Notes";
+    markActive(id);
+
+    if (cache[id]) {
+      paint(cache[id]);
+      return;
+    }
+
+    content.innerHTML = '<div id="skeleton">Loading ' + title + '…</div>';
+    var path = folder + "/" + file;
+    fetch(path)
+      .then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.text();
+      })
+      .then(function (md) {
+        var rawHtml = marked.parse(md);
+        var clean = DOMPurify.sanitize(rawHtml, { ADD_ATTR: ["target"] });
+        cache[id] = { html: clean, folder: folder, index: index };
+        paint(cache[id]);
+      })
+      .catch(function (err) {
+        content.innerHTML = "<h1>" + title + "</h1><p>Could not load this note (" + err.message + "). " +
+          'View it directly on <a href="https://github.com/utkarsh-mehrotra/system-design-notes/blob/main/' +
+          encodeURI(path) + '" target="_blank" rel="noopener">GitHub</a>.</p>';
+      });
+
+    function paint(data) {
+      var wrap = document.createElement("div");
+      wrap.innerHTML = data.html;
+      resolveImagePaths(wrap, data.folder);
+      content.innerHTML = "";
+      content.appendChild(wrap);
+      var pagerWrap = document.createElement("div");
+      pagerWrap.innerHTML = renderPager(data.index);
+      content.appendChild(pagerWrap.firstChild);
+      content.querySelectorAll("pre code").forEach(function (block) {
+        hljs.highlightElement(block);
+      });
+      window.scrollTo(0, 0);
+      sidebar.classList.remove("open");
+    }
+  }
+
+  function route() {
+    var hash = window.location.hash.replace(/^#\/?/, "");
+    if (!hash) { renderHome(); return; }
+    renderTopic(hash);
+  }
+
+  window.addEventListener("hashchange", route);
+  document.getElementById("menu-toggle").addEventListener("click", function () {
+    sidebar.classList.toggle("open");
+  });
+  searchBox.addEventListener("input", function () {
+    buildNav(searchBox.value.trim().toLowerCase());
+    var hash = window.location.hash.replace(/^#\/?/, "");
+    markActive(hash);
+  });
+
+  buildNav("");
+  route();
+})();
+</script>
+</body>
+</html>
